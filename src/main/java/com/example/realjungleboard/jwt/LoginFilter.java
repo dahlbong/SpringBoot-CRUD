@@ -1,19 +1,29 @@
 package com.example.realjungleboard.jwt;
 
+import com.example.realjungleboard.dto.CustomUserDetails;
+import com.example.realjungleboard.entity.constEnum.Role;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import java.util.Collection;
+import java.util.Iterator;
 
 @RequiredArgsConstructor
 public class LoginFilter extends UsernamePasswordAuthenticationFilter {
+    @Value("${spring.jwt.time}")
+    private Long expiredMs;
 
     private final AuthenticationManager authenticationManager;
+    private final JwtUtil jwtUtil;
 
     @Override
     public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException {
@@ -34,7 +44,17 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
     protected void successfulAuthentication(
             HttpServletRequest request, HttpServletResponse response, FilterChain chain, Authentication authentication
     ) {
-        System.out.println("!!!!successful Authentication!!!!");
+        CustomUserDetails customUserDetails = (CustomUserDetails) authentication.getPrincipal();    // 특정 유저 확인
+        String username = customUserDetails.getUsername();
+
+        Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
+        Iterator<? extends GrantedAuthority> iterator = authorities.iterator();
+        GrantedAuthority auth = iterator.next();
+
+        String role = auth.getAuthority();
+        String token = jwtUtil.createJwt(username, role);
+        response.addHeader("Authorization", "Bearer " + token);
+
     }
 
     //로그인 실패시 실행하는 메소드
@@ -42,6 +62,6 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
     protected void unsuccessfulAuthentication(
             HttpServletRequest request, HttpServletResponse response, AuthenticationException failed
     ) {
-        System.out.println("!!!!fail Authentication!!!!");
+        response.setStatus(401);
     }
 }
